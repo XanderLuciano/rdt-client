@@ -180,6 +180,10 @@ http://127.0.0.1:6800/jsonrpc.")]
     [DisplayName("Sanitize filenames")]
     [Description("Strip characters from filenames and torrent directory names that cause issues on Linux containers (square brackets, curly braces, control characters) and collapse multiple consecutive spaces. Recommended on; disable only if you need to preserve the exact filenames from the debrid provider.")]
     public Boolean SanitizeFilenames { get; set; } = true;
+
+    [DisplayName("Place single-file torrents in the category root")]
+    [Description("When a torrent contains a single file, place that file directly in the category/download root instead of inside a torrent-named subdirectory. Enable this if Sonarr/Radarr report their expected file as missing because it is nested one directory too deep (e.g. Sonarr looks in /downloads/tv/ but the file is at /downloads/tv/&lt;release&gt;/&lt;file&gt;.mkv). Multi-file torrents are unaffected.")]
+    public Boolean MoveSingleFilesToRoot { get; set; } = false;
 }
 
 public class DbSettingsProvider

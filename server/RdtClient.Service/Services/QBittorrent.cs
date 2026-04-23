@@ -213,6 +213,11 @@ public class QBittorrent(ILogger<QBittorrent> logger, Settings settings, Authent
                 {
                     torrentPath = Path.Combine(downloadPath, FilenameSanitizer.SanitizePathIfEnabled(torrent.Files[0].Path));
                 }
+                else if (DownloadHelper.ShouldFlattenSingleFileToRoot(torrent))
+                {
+                    var singleFileName = Path.GetFileName(torrent.Files[0].Path);
+                    torrentPath = Path.Combine(downloadPath, FilenameSanitizer.SanitizeFilenameIfEnabled(singleFileName));
+                }
                 else
                 {
                     torrentPath = Path.Combine(downloadPath, FilenameSanitizer.SanitizeFilenameIfEnabled(torrent.RdName)) + Path.DirectorySeparatorChar;

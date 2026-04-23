@@ -1,6 +1,7 @@
 ﻿using System.IO.Abstractions;
 using System.Web;
 using RdtClient.Data.Models.Data;
+using RdtClient.Service.Services;
 
 namespace RdtClient.Service.Helpers;
 
@@ -17,8 +18,9 @@ public static class DownloadHelper
 
         var originalDirectory = RemoveInvalidPathChars(torrent.RdName);
         var directory = FilenameSanitizer.SanitizeFilenameIfEnabled(originalDirectory);
+        var flattenToRoot = ShouldFlattenSingleFileToRoot(torrent);
 
-        var torrentPath = Path.Combine(downloadPath, directory);
+        var torrentPath = flattenToRoot ? downloadPath : Path.Combine(downloadPath, directory);
 
         var originalFileName = GetFileName(download);
 
@@ -27,25 +29,28 @@ public static class DownloadHelper
             return null;
         }
 
-        var matchingTorrentFiles = torrent.Files.Where(m => m.Path.EndsWith(originalFileName)).Where(m => !String.IsNullOrWhiteSpace(m.Path)).ToList();
-
-        if (matchingTorrentFiles.Count > 0)
+        if (!flattenToRoot)
         {
-            var matchingTorrentFile = matchingTorrentFiles[0];
+            var matchingTorrentFiles = torrent.Files.Where(m => m.Path.EndsWith(originalFileName)).Where(m => !String.IsNullOrWhiteSpace(m.Path)).ToList();
 
-            var subPath = Path.GetDirectoryName(matchingTorrentFile.Path);
-
-            if (!String.IsNullOrWhiteSpace(subPath))
+            if (matchingTorrentFiles.Count > 0)
             {
-                subPath = subPath.Trim('/').Trim('\\');
+                var matchingTorrentFile = matchingTorrentFiles[0];
 
-                subPath = StripTorrentNamePrefix(subPath, originalDirectory);
+                var subPath = Path.GetDirectoryName(matchingTorrentFile.Path);
 
                 if (!String.IsNullOrWhiteSpace(subPath))
                 {
-                    subPath = FilenameSanitizer.SanitizePathIfEnabled(subPath);
+                    subPath = subPath.Trim('/').Trim('\\');
 
-                    torrentPath = Path.Combine(torrentPath, subPath);
+                    subPath = StripTorrentNamePrefix(subPath, originalDirectory);
+
+                    if (!String.IsNullOrWhiteSpace(subPath))
+                    {
+                        subPath = FilenameSanitizer.SanitizePathIfEnabled(subPath);
+
+                        torrentPath = Path.Combine(torrentPath, subPath);
+                    }
                 }
             }
         }
@@ -74,7 +79,8 @@ public static class DownloadHelper
         }
 
         var uri = new Uri(fileUrl);
-        var torrentPath = RemoveInvalidPathChars(torrent.RdName);
+        var flattenToRoot = ShouldFlattenSingleFileToRoot(torrent);
+        var torrentPath = flattenToRoot ? String.Empty : RemoveInvalidPathChars(torrent.RdName);
 
         var fileName = download.FileName;
 
@@ -85,30 +91,38 @@ public static class DownloadHelper
             fileName = HttpUtility.UrlDecode(fileName);
         }
 
-        var matchingTorrentFiles = torrent.Files.Where(m => m.Path.EndsWith(fileName)).Where(m => !String.IsNullOrWhiteSpace(m.Path)).ToList();
-
-        if (matchingTorrentFiles.Count > 0)
+        if (!flattenToRoot)
         {
-            var matchingTorrentFile = matchingTorrentFiles[0];
+            var matchingTorrentFiles = torrent.Files.Where(m => m.Path.EndsWith(fileName)).Where(m => !String.IsNullOrWhiteSpace(m.Path)).ToList();
 
-            var subPath = Path.GetDirectoryName(matchingTorrentFile.Path);
-
-            if (!String.IsNullOrWhiteSpace(subPath))
+            if (matchingTorrentFiles.Count > 0)
             {
-                subPath = subPath.Trim('/').Trim('\\');
+                var matchingTorrentFile = matchingTorrentFiles[0];
 
-                subPath = StripTorrentNamePrefix(subPath, torrentPath);
+                var subPath = Path.GetDirectoryName(matchingTorrentFile.Path);
 
                 if (!String.IsNullOrWhiteSpace(subPath))
                 {
-                    torrentPath = Path.Combine(torrentPath, subPath);
+                    subPath = subPath.Trim('/').Trim('\\');
+
+                    subPath = StripTorrentNamePrefix(subPath, torrentPath);
+
+                    if (!String.IsNullOrWhiteSpace(subPath))
+                    {
+                        torrentPath = Path.Combine(torrentPath, subPath);
+                    }
                 }
             }
         }
 
-        var filePath = Path.Combine(torrentPath, fileName);
+        var filePath = flattenToRoot ? fileName : Path.Combine(torrentPath, fileName);
 
         return filePath;
+    }
+
+    internal static Boolean ShouldFlattenSingleFileToRoot(Torrent torrent)
+    {
+        return Settings.Get.DownloadClient.MoveSingleFilesToRoot && torrent.Files.Count == 1;
     }
 
     public static String? GetFileName(Download download)
